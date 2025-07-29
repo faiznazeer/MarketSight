@@ -1,0 +1,16 @@
+
+
+---
+
+## Downloading SEC 10-K Reports
+
+1. Install dependencies:
+
+    pip install -r requirements.txt
+
+2. Run the script:
+
+    python fetch_reports.py
+
+Data will be saved in `data/raw_reports/`.
+
