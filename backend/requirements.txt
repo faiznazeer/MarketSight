@@ -3,4 +3,8 @@ beautifulsoup4
 langchain
 langchain-text-splitters
 qdrant-client
-sentence-transformers 
+sentence-transformers
+fastapi
+uvicorn
+python-dotenv
+google-generativeai 
