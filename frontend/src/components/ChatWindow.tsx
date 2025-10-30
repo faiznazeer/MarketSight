@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useApp } from '@/context/AppContext'
 import ChatMessage from './ChatMessage'
 import type { Source } from '../types/index.ts'
+import { api } from '@/lib/api'
 
 const EXAMPLE_PROMPTS = [
   "Summarize the risk factors for $TSLA",
@@ -30,93 +31,58 @@ export default function ChatWindow() {
     scrollToBottom()
   }, [activeSession?.messages])
 
-  const simulateStreamingResponse = async (userMessage: string, sessionId: string) => {
-    // Mock AI response with streaming effect
-    const mockResponse = `Based on the financial documents, here's what I found:
-
-## Key Findings
-
-The company has shown **strong revenue growth** of approximately 23% year-over-year. Here are the highlights:
-
-- Revenue: $394.3 billion
-- Net Income: $96.9 billion
-- Operating Margin: 30.7%
-
-### Revenue Breakdown by Segment
-
-| Segment | Revenue (B) | YoY Growth |
-|---------|-------------|------------|
-| Products | $298.1 | +7% |
-| Services | $78.1 | +14% |
-| Other | $18.1 | +5% |
-
-The company continues to invest heavily in R&D, with spending reaching $26.3 billion this year. This represents about 6.7% of total revenue.
-
-### Risk Factors
-
-Key risks identified in the 10-K include:
-1. Supply chain vulnerabilities
-2. Regulatory challenges in key markets
-3. Competition from emerging technologies
-4. Currency fluctuation impacts
-
-The management team has expressed confidence in their strategic initiatives and expects continued growth in the coming quarters.`
-
-    // Create assistant message
-    const assistantMessageId = crypto.randomUUID()
+  const getAIResponse = async (userMessage: string, sessionId: string) => {
     
-    // Mock sources
-    const mockSources: Source[] = [
-      {
-        id: '1',
-        title: '10-K Annual Report - Item 7: Management Discussion',
-        snippet: 'The company has shown strong revenue growth of approximately 23% year-over-year, driven primarily by increased product sales and service subscriptions.',
-        page: 42,
-        documentType: '10-K Filing'
-      },
-      {
-        id: '2',
-        title: '10-K Annual Report - Item 1A: Risk Factors',
-        snippet: 'The company faces risks related to supply chain vulnerabilities, regulatory challenges in key markets, and competition from emerging technologies.',
-        page: 15,
-        documentType: '10-K Filing'
-      },
-      {
-        id: '3',
-        title: '10-K Annual Report - Consolidated Financial Statements',
-        snippet: 'Revenue for the year reached $394.3 billion with net income of $96.9 billion, representing an operating margin of 30.7%.',
-        page: 67,
-        documentType: '10-K Filing'
-      }
-    ]
-
-    addMessage(sessionId, {
-      role: 'assistant',
-      content: '',
-      isStreaming: true,
-      sources: mockSources
-    })
-
-    // Simulate streaming
-    const words = mockResponse.split(' ')
-    let currentContent = ''
-
-    for (let i = 0; i < words.length; i++) {
-      currentContent += (i > 0 ? ' ' : '') + words[i]
+    try {
+      // Call backend API
+      const response = await api.query(userMessage, 5)
       
-      updateMessage(sessionId, assistantMessageId, {
-        content: currentContent,
-        isStreaming: i < words.length - 1
+      // Convert backend sources to frontend format
+      const sources: Source[] = response.sources.map((src, idx) => ({
+        id: `${idx}`,
+        title: src.source,
+        snippet: `Relevance score: ${src.score.toFixed(3)}`,
+        page: src.chunk_index,
+        documentType: '10-K Filing'
+      }))
+
+      // Add initial assistant message with streaming indicator and capture its id
+      const assistantMessageId = addMessage(sessionId, {
+        role: 'assistant',
+        content: '',
+        isStreaming: true,
+        sources: sources
       })
 
-      // Wait a bit between words to simulate streaming
-      await new Promise(resolve => setTimeout(resolve, 30))
-    }
+      // Simulate streaming effect for the response
+      const answer = response.answer
+      const words = answer.split(' ')
+      let currentContent = ''
 
-    updateMessage(sessionId, assistantMessageId, {
-      content: mockResponse,
-      isStreaming: false
-    })
+      for (let i = 0; i < words.length; i++) {
+        currentContent += (i > 0 ? ' ' : '') + words[i]
+        
+         updateMessage(sessionId, assistantMessageId, {
+          content: currentContent,
+          isStreaming: i < words.length - 1
+        })
+
+        // Wait a bit between words to simulate streaming
+        await new Promise(resolve => setTimeout(resolve, 20))
+      }
+
+       updateMessage(sessionId, assistantMessageId, {
+        content: answer,
+        isStreaming: false
+      })
+    } catch (error) {
+      // Add error message
+      addMessage(sessionId, {
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to get response from AI'}. Please make sure you're logged in and try again.`,
+        isStreaming: false
+      })
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,8 +100,8 @@ The management team has expressed confidence in their strategic initiatives and 
       content: userMessage
     })
 
-    // Simulate AI response
-    await simulateStreamingResponse(userMessage, activeSessionId)
+    // Get AI response from backend
+    await getAIResponse(userMessage, activeSessionId)
     
     setIsLoading(false)
   }

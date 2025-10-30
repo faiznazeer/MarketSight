@@ -4,40 +4,62 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useApp } from '@/context/AppContext'
 import { TrendingUp, Mail } from 'lucide-react'
+import { api, setAuthToken } from '@/lib/api'
 
 export default function SignUp() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const { setUser } = useApp()
   const navigate = useNavigate()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
+    setIsLoading(true)
     
-    // Mock signup - in production, this would call your auth API
-    const mockUser = {
-      id: crypto.randomUUID(),
-      name: name,
-      email: email,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${name}`
+    try {
+      // Signup with backend
+      await api.signup({ email, password, name })
+      
+      // After successful signup, login automatically
+      const tokenResponse = await api.login({ email, password })
+      
+      // Store token
+      setAuthToken(tokenResponse.access_token)
+      
+      // Fetch user profile
+      const userProfile = await api.getUserProfile()
+      
+      const user = {
+        id: userProfile.sub,
+        name: userProfile.name || name,
+        email: userProfile.email,
+        avatar: userProfile.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${name}`
+      }
+      
+      setUser(user)
+      navigate('/app')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Signup failed')
+    } finally {
+      setIsLoading(false)
     }
-    
-    setUser(mockUser)
-    navigate('/app')
   }
 
-  const handleGoogleSignup = () => {
-    // Mock Google OAuth - in production, this would redirect to OAuth
-    const mockUser = {
-      id: crypto.randomUUID(),
-      name: 'Demo User',
-      email: 'demo@marketsight.ai',
-      avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Demo User'
-    }
+  const handleGoogleSignup = async () => {
+    setError('')
     
-    setUser(mockUser)
-    navigate('/app')
+    try {
+      const redirectUri = `${window.location.origin}/callback`
+      const { authorization_url } = await api.getGoogleAuthUrl(redirectUri)
+      // Redirect to Google OAuth
+      window.location.href = authorization_url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google signup failed')
+    }
   }
 
   return (
@@ -56,6 +78,12 @@ export default function SignUp() {
         </div>
 
         <div className="bg-[hsl(var(--color-card))] border border-[hsl(var(--color-border))] rounded-lg p-8 shadow-lg">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium mb-2 text-[hsl(var(--color-foreground))]">
@@ -99,8 +127,8 @@ export default function SignUp() {
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              Create Account
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Creating account...' : 'Create Account'}
             </Button>
           </form>
 

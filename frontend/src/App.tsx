@@ -3,6 +3,7 @@ import { AppProvider, useApp } from '@/context/AppContext'
 import Login from '@/pages/Login'
 import SignUp from '@/pages/SignUp'
 import MainApp from '@/pages/MainApp'
+import Callback from '@/pages/Callback'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user } = useApp()
@@ -29,6 +30,7 @@ function AppRoutes() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/callback" element={<Callback />} />
         <Route
           path="/login"
           element={

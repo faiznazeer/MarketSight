@@ -47,7 +47,7 @@ set_identity(EMAIL_IDENTITY)
 # Which forms to fetch
 FORM_TYPES = ['10-K']
 
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")  # Replace with your Gemini API key
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  # Replace with your Gemini API key
 GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY
 
 def remove_tables(markdown_text):

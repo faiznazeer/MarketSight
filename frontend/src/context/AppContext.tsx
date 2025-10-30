@@ -10,7 +10,7 @@ interface AppContextType {
   createSession: (title: string, ticker: string) => string
   deleteSession: (id: string) => void
   updateSessionTitle: (id: string, title: string) => void
-  addMessage: (sessionId: string, message: Omit<Message, 'id' | 'timestamp'>) => void
+  addMessage: (sessionId: string, message: Omit<Message, 'id' | 'timestamp'>) => string
   updateMessage: (sessionId: string, messageId: string, updates: Partial<Message>) => void
 }
 
@@ -117,6 +117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? { ...s, messages: [...s.messages, newMessage], updatedAt: new Date() }
         : s
     ))
+    return newMessage.id
   }
 
   const updateMessage = (sessionId: string, messageId: string, updates: Partial<Message>) => {

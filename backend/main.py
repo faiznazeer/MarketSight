@@ -1,5 +1,6 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
@@ -7,9 +8,30 @@ from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 from typing import List, Dict, Any
 
+# Import authentication modules
+from auth_routes import router as auth_router
+from auth_middleware import require_auth
+from auth_config import Auth0Config
+
 load_dotenv()
 
-app = FastAPI()
+app = FastAPI(
+    title="MarketSight API",
+    description="Financial analysis API with 10-K filing insights and authentication",
+    version="1.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],  # Add your frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include authentication router
+app.include_router(auth_router)
 
 # Qdrant configuration
 QDRANT_URL = os.getenv('QDRANT_URL', 'http://localhost:6333')
@@ -124,10 +146,26 @@ Please provide your analysis now:"""
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    """Public health check endpoint"""
+    return {
+        "status": "healthy",
+        "auth_configured": Auth0Config.validate_config()
+    }
+
+@app.get("/health/protected")
+async def protected_health_check(current_user: Dict[str, Any] = Depends(require_auth)):
+    """Protected health check endpoint (requires authentication)"""
+    return {
+        "status": "healthy",
+        "user": current_user["user_id"],
+        "message": "Authentication is working!"
+    }
 
 @app.post("/query")
-async def query_documents(request: QueryRequest):
+async def query_documents(
+    request: QueryRequest,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     # Convert question to embedding
     question_embedding = embedding_model.encode(request.question)
     
@@ -172,7 +210,8 @@ async def query_documents(request: QueryRequest):
         "question": request.question,
         "answer": answer,
         "sources": sources,
-        "context_used": len(extracted_results)
+        "context_used": len(extracted_results),
+        "user_id": current_user["user_id"]
     }
 
 if __name__ == "__main__":

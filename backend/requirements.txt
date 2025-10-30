@@ -7,4 +7,6 @@ sentence-transformers
 fastapi
 uvicorn
 python-dotenv
-google-generativeai 
+google-generativeai
+python-jose[cryptography]
+python-multipart 

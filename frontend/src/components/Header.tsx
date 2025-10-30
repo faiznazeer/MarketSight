@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useApp } from '@/context/AppContext'
 import { useNavigate } from 'react-router-dom'
+import { api } from '@/lib/api'
 
 interface HeaderProps {
   onToggleSidebar?: () => void
@@ -19,7 +20,8 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   const { user, setUser } = useApp()
   const navigate = useNavigate()
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await api.logout()
     setUser(null)
     localStorage.clear()
     navigate('/login')

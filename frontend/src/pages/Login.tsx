@@ -4,39 +4,58 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useApp } from '@/context/AppContext'
 import { TrendingUp, Mail } from 'lucide-react'
+import { api, setAuthToken } from '@/lib/api'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const { setUser } = useApp()
   const navigate = useNavigate()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
+    setIsLoading(true)
     
-    // Mock login - in production, this would call your auth API
-    const mockUser = {
-      id: '1',
-      name: email.split('@')[0],
-      email: email,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${email}`
+    try {
+      // Login with backend
+      const tokenResponse = await api.login({ email, password })
+      
+      // Store token
+      setAuthToken(tokenResponse.access_token)
+      
+      // Fetch user profile
+      const userProfile = await api.getUserProfile()
+      
+      const user = {
+        id: userProfile.sub,
+        name: userProfile.name || email.split('@')[0],
+        email: userProfile.email,
+        avatar: userProfile.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${userProfile.name || email}`
+      }
+      
+      setUser(user)
+      navigate('/app')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setIsLoading(false)
     }
-    
-    setUser(mockUser)
-    navigate('/app')
   }
 
-  const handleGoogleLogin = () => {
-    // Mock Google OAuth - in production, this would redirect to OAuth
-    const mockUser = {
-      id: '1',
-      name: 'Demo User',
-      email: 'demo@marketsight.ai',
-      avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Demo User'
-    }
+  const handleGoogleLogin = async () => {
+    setError('')
     
-    setUser(mockUser)
-    navigate('/app')
+    try {
+      const redirectUri = `${window.location.origin}/callback`
+      const { authorization_url } = await api.getGoogleAuthUrl(redirectUri)
+      // Redirect to Google OAuth
+      window.location.href = authorization_url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google login failed')
+    }
   }
 
   return (
@@ -55,6 +74,12 @@ export default function Login() {
         </div>
 
         <div className="bg-[hsl(var(--color-card))] border border-[hsl(var(--color-border))] rounded-lg p-8 shadow-lg">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium mb-2 text-[hsl(var(--color-foreground))]">
@@ -84,8 +109,8 @@ export default function Login() {
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              Sign In
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
 
